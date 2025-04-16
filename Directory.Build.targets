@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+
+  <PropertyGroup Condition="'$(ModID)' != ''">
+    <GameDataFiles>$(UserProfile)\Documents\Klei\OxygenNotIncluded</GameDataFiles>
+    <RootNamespace>enimaloc.$(ModID)</RootNamespace>
+    <AssemblyName>$(ModID)</AssemblyName>
+  </PropertyGroup>
+
+  <Target Name="GenerateModYaml" AfterTargets="Build" Condition="'$(DontGenerateMetadata)' != 'true'">
+    <WriteLinesToFile
+            File="$(TargetDir)/mod.yaml"
+            Overwrite="true"
+            Lines="
+title: $(ModName)
+description: $(ModDescription)
+staticID: $(ModID)"/>
+  </Target>
+
+  <Target Name="GenerateModInfoYaml" AfterTargets="Build" Condition="'$(DontGenerateMetadata)' != 'true'">
+    <ItemGroup>
+      <ModInfoLines Include="minimumSupportedBuild: $(CurrentGameVersion)"/>
+      <ModInfoLines Include="version: $(Version)"/>
+      <ModInfoLines Include="APIVersion: 2"/>
+      <ModInfoLines Include="supportedContent: ALL"/>
+      <ModInfoLines Include="requiredDlcIds:" Condition="'$(RequiredDlcIds)' != ''"/>
+      <ModInfoLines Include="$(RequiredDlcIds)" Condition="'$(RequiredDlcIds)' != ''"/>
+      <ModInfoLines Include="forbiddenDlcIds:" Condition="'$(ForbiddenDlcIds)' != ''"/>
+      <ModInfoLines Include="$(ForbiddenDlcIds)" Condition="'$(ForbiddenDlcIds)' != ''"/>
+    </ItemGroup>
+    <WriteLinesToFile File="$(TargetDir)/mod_info.yaml" Overwrite="true" Lines="@(ModInfoLines)"/>
+  </Target>
+
+  <Target Name="ILRepack" AfterTargets="Build" Condition="'$(NoMerge)' != 'true'">
+    <ItemGroup>
+      <InputAssemblies Include="$(TargetPath)"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(UseCommonLib)' == 'true'">
+      <InputAssemblies Include="@(InputAssemblies);$(TargetDir)enimaloc.CommonLib.dll"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(UsePLib)' == 'true'">
+      <InputAssemblies Include="@(InputAssemblies);$(TargetDir)PLib.dll"/>
+    </ItemGroup>
+
+    <ILRepack
+            TargetKind="SameAsPrimaryAssembly"
+            OutputFile="$(TargetPath)"
+            InputAssemblies="@(InputAssemblies)"
+            XmlDocumentation="true"
+            Internalize="true"
+            Wildcards="true"
+            LibraryPath="$(GameLibsFolder);$(UnityLibsFolder)" />
+  </Target>
+
+  <Target Name="CopyAssets" AfterTargets="Build" Condition="'$(DontCopyAssets)' != 'true'">
+    <ItemGroup>
+      <AssetFiles Include="$(ProjectDir)/Assets/**/*.*"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(AssetFiles)" DestinationFolder="$(TargetDir)%(RecursiveDir)" ContinueOnError="true"/>
+  </Target>
+  
+  <Target Name="CopyInGameDev" AfterTargets="ILRepack" Condition="'$(ConfigurationName)' == 'Debug'">
+    <ItemGroup>
+      <InGameFiles Include="$(TargetPath)"/>
+      <InGameFiles Include="$(TargetDir)/mod.yaml"/>
+      <InGameFiles Include="$(TargetDir)/mod_info.yaml"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(InGameFiles)" DestinationFolder="$(GameDataFiles)/mods/Dev/$(AssemblyName)/" ContinueOnError="true"/>
+  </Target>
+  
+  <Target Name="CopyInGameLocal" AfterTargets="ILRepack" Condition="'$(ConfigurationName)' == 'Release'">
+    <ItemGroup>
+      <InGameFiles Include="$(TargetPath)"/>
+      <InGameFiles Include="$(TargetDir)/mod.yaml"/>
+      <InGameFiles Include="$(TargetDir)/mod_info.yaml"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(InGameFiles)" DestinationFolder="$(GameDataFiles)/mods/Local/$(AssemblyName)/" ContinueOnError="true"/>
+  </Target>
+
+</Project>

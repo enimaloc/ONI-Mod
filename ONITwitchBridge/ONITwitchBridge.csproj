@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <ModID>onitb</ModID>
+        <ModName>ONI Twitch Bridge</ModName>
+        <ModDescription>ONI Twitch bridge allows you for duplicants to have viewer nicknames and much more</ModDescription>
+        <SteamID></SteamID>
+        <UsePLib>true</UsePLib>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <Reference Include="TwitchIRC"><HintPath>lib/TwitchIRC.dll</HintPath></Reference>
+    </ItemGroup>
+</Project>
