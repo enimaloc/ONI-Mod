@@ -33,7 +33,7 @@ staticID: $(ModID)"/>
 
   <Target Name="ILRepack" AfterTargets="Build" Condition="'$(NoMerge)' != 'true'">
     <ItemGroup>
-      <InputAssemblies Include="$(TargetPath)"/>
+      <InputAssemblies Include="@(InputAssemblies);$(TargetPath)"/>
     </ItemGroup>
     <ItemGroup Condition="'$(UseCommonLib)' == 'true'">
       <InputAssemblies Include="@(InputAssemblies);$(TargetDir)enimaloc.CommonLib.dll"/>
