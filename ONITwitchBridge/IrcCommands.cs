@@ -10,7 +10,7 @@
             public const string JOIN = "join";
         }
     }
-    
+
     [Command(IrcCommand.Command.HELP, "allow you to see the list of commands.")]
     public class OniTB : ICommand
     {
@@ -49,18 +49,14 @@
     public class Join : ICommand
     {
         private IrcClient _ircClient;
-        
+
         public Join(IrcClient ircClient)
         {
             _ircClient = ircClient;
         }
-        
-        public override string Execute(string user, string arg, string[] args)
-        {
-            if (_ircClient.Nicknames.Contains(user)) return $"{user}, you are already in the list of potential Duplicants.";
-            
-            _ircClient.Nicknames.Add(user);
-            return $"{user} has joined the list to be a Dups.";
-        }
+
+        public override string Execute(string user, string arg, string[] args) => _ircClient.AddUser(user)
+            ? $"{user} has joined the list to be a Dups."
+            : $"{user}, you are already in the list of potential Duplicants.";
     }
 }
