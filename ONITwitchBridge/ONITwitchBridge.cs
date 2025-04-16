@@ -22,6 +22,7 @@ namespace ONITwitchBridge
         {
             Settings settings = POptions.ReadSettings<Settings>();
             IrcClient irc = new IrcClient();
+            irc.RegisterCommands();
             irc.Connect(settings.Username, settings.OAuth, settings.Channel);
         }
     }
