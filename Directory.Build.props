@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Project>
+
+  <!-- Include ONI-Libs submodule -->
+  <PropertyGroup>
+    <ONILibsRoot>$(SolutionDir)/gamelibs</ONILibsRoot>
+    <UseTestingLibs>false</UseTestingLibs>
+  </PropertyGroup>
+  <Import Project="$(ONILibsRoot)/GameLibs.props"/>
+
+  <!-- Common properties for all mods/projects -->
+  <PropertyGroup>
+    <ClearOutputDirectory>true</ClearOutputDirectory>
+    <ModDescription>TODO</ModDescription>
+    <APIVersion>2</APIVersion>
+    <MinimumSupportedBuild>$(CurrentGameVersion)</MinimumSupportedBuild>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <TargetFramework>net48</TargetFramework>
+<!--    <Configurations>Release</Configurations>-->
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <BuildYear>$([System.DateTime]::UtcNow.ToString("yyyy"))</BuildYear>
+    <BuildMonth>$([System.DateTime]::UtcNow.ToString("MM"))</BuildMonth>
+    <BuildDay>$([System.DateTime]::UtcNow.ToString("dd"))</BuildDay>
+    <BuildHour>$([System.DateTime]::UtcNow.ToString("HH"))</BuildHour>
+    <BuildMinute>$([System.DateTime]::UtcNow.ToString("mm"))</BuildMinute>
+    <VersionPrefix>$(BuildYear).$(BuildMonth).$(BuildDay).1$(BuildHour)$(BuildMinute)</VersionPrefix>
+    <AssemblyVersion>$(VersionPrefix)</AssemblyVersion>
+    <FileVersion>$(VersionPrefix)</FileVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <InformationalVersion>Game Version $(CurrentGameVersion)</InformationalVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>enimaloc</Authors>
+    <Copyright>$(BuildYear) enimaloc</Copyright>
+    <RepositoryUrl>https://github.com/enimaloc/ONI-Mod</RepositoryUrl>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutDir>bin</OutDir>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutDir>bin</OutDir>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+<!--  <ItemGroup Condition="'$(UseCommonLib)' == 'true'">-->
+<!--    <ProjectReference Include="../CommonLib/CommonLib.csproj">-->
+<!--      <PrivateAssets>all</PrivateAssets>-->
+<!--    </ProjectReference>-->
+<!--  </ItemGroup>-->
+
+  <ItemGroup Condition="'$(UsePLib)' == 'true'">
+    <PackageReference Include="PLib" Version="4.17.1">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.37">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>
