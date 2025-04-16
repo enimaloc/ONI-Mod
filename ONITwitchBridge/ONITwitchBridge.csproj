@@ -9,6 +9,7 @@
     </PropertyGroup>
     
     <ItemGroup>
+        <InputAssemblies Include="$(ProjectDir)/lib/TwitchIRC.dll" />
         <Reference Include="TwitchIRC"><HintPath>lib/TwitchIRC.dll</HintPath></Reference>
     </ItemGroup>
 </Project>
