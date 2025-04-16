@@ -14,4 +14,15 @@ namespace ONITwitchBridge
             new POptions().RegisterOptions(this, typeof(Settings));
         }
     }
+
+    [HarmonyPatch(typeof(Game), nameof(Game.Load))]
+    public static class PatchGameLoad
+    {
+        public static void Postfix(Game __instance)
+        {
+            Settings settings = POptions.ReadSettings<Settings>();
+            IrcClient irc = new IrcClient();
+            irc.Connect(settings.Username, settings.OAuth, settings.Channel);
+        }
+    }
 }
