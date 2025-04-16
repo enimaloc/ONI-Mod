@@ -9,7 +9,7 @@ namespace ONITwitchBridge
         [Option("Username", "The username of the bot. You can set to justinfan12345 for anonymous",
             "Twitch")]
         [JsonProperty]
-        public string Username { get; set; } = "justinfan12345";
+        public string Username { get; set; } = IrcClient.ANON_USERNAME;
 
         private string _OAuth = "oauth:kappa";
 
