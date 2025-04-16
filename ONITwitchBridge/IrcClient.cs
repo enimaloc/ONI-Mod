@@ -12,15 +12,12 @@ namespace ONITwitchBridge
     public class IrcClient
     {
         public const string ANON_USERNAME = "justinfan12345";
-        public List<string> Nicknames;
+        private List<string> _nicknames = new List<string>();
         public Dictionary<string, ICommand> Commands;
         private ChatListener _listener;
         private bool _anonymous;
-
-        public IrcClient()
-        {
-            Nicknames = new List<string>();
-        }
+        private string[] disallowedNicknames = new string[7];
+        private int cursor = 0;
 
         public void Connect(string user, string oauth, string channel)
         {
@@ -85,11 +82,59 @@ namespace ONITwitchBridge
             }
         }
 
-        private void SendMessage(string message)
+        public void SendMessage(string message)
         {
             if (_anonymous) return;
             _listener.Irc.SendChatMessage(message);
         }
+
+        public string GetRandomUser(string or)
+        {
+            if (_nicknames.Count != 0)
+            {
+                var get = _nicknames.GetRandom();
+                int attempts = 0;
+                while (disallowedNicknames.Contains(get) && attempts < 10)
+                {
+                    get = _nicknames.GetRandom();
+                    attempts++;
+                }
+                if (attempts >= 10)
+                {
+                    PUtil.LogWarning("Could not find a valid random user after 10 attempts.");
+                    get = or;
+                }
+                or = get;
+            }
+
+            disallowedNicknames[cursor] = or;
+            cursor = (cursor + 1) % disallowedNicknames.Length;
+            return or;
+        }
+
+        public bool RemoveUser(string user)
+        {
+            if (!_nicknames.Contains(user)) return false;
+            _nicknames.Remove(user);
+            PUtil.LogDebug($"Removed user: {user}.");
+            return true;
+        }
+
+        public bool AddUser(string user)
+        {
+            if (_nicknames.Contains(user)) return false;
+            _nicknames.Add(user);
+            PUtil.LogDebug($"Added user: {user}.");
+            return true;
+        }
+
+        public void Disconnect()
+        {
+            _listener.StopListening();
+            _listener = null;
+        }
+        
+        public bool IsConnected() => _listener is { Connected: true };
     }
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
