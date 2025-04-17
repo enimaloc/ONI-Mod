@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Database;
 using PeterHan.PLib.Core;
 using TwitchIRC;
 using UnityEngine;
@@ -12,7 +13,7 @@ namespace ONITwitchBridge
     public class IrcClient
     {
         public const string ANON_USERNAME = "justinfan12345";
-        private List<string> _nicknames = new List<string>();
+        private List<TwitchDup> _nicknames = new List<TwitchDup>();
         public Dictionary<string, ICommand> Commands;
         private ChatListener _listener;
         private bool _anonymous;
@@ -93,52 +94,67 @@ namespace ONITwitchBridge
             _listener.Irc.SendChatMessage(message);
         }
 
-        public string GetRandomUser(string or)
+        public Dup GetRandomUser(Dup or, Dictionary<SkillGroup, float>.KeyCollection skillsHint)
         {
-            if (_nicknames.Count != 0)
+            var available = new TwitchDup[_nicknames.Count];
+            _nicknames.CopyTo(available);
+            available = available.Where(dup =>
+                (skillsHint.Any(dup.IsMainSkilled) || dup.HasNoMainSkill())
+                && !disallowedNicknames.Contains(dup.Username)
+            ).ToArray();
+            if (available.Length != 0)
             {
-                var get = _nicknames.GetRandom();
+                Dup get = available.GetRandom();
                 int attempts = 0;
-                while (disallowedNicknames.Contains(get) && attempts < 10)
+                while (disallowedNicknames.Contains(get.Username) && attempts < 10)
                 {
-                    get = _nicknames.GetRandom();
+                    get = available.GetRandom();
                     attempts++;
                 }
+
                 if (attempts >= 10)
                 {
                     PUtil.LogWarning("Could not find a valid random user after 10 attempts.");
                     get = or;
                 }
+
                 or = get;
             }
 
-            disallowedNicknames[cursor] = or;
+            disallowedNicknames[cursor] = or.Username;
             cursor = (cursor + 1) % disallowedNicknames.Length;
             return or;
         }
 
         public bool RemoveUser(string user)
         {
-            if (!_nicknames.Contains(user)) return false;
-            _nicknames.Remove(user);
+            if (!_nicknames.Any(dup => dup.Username.Equals(user))) return false;
+            _nicknames.Remove(_nicknames.Find(dup => dup.Username.Equals(user)));
             PUtil.LogDebug($"Removed user: {user}.");
             return true;
         }
 
         public bool AddUser(string user)
         {
-            if (_nicknames.Contains(user)) return false;
-            _nicknames.Add(user);
+            if (_nicknames.Any(dup => dup.Username.Equals(user))) return false;
+            _nicknames.Add(new TwitchDup(user));
             PUtil.LogDebug($"Added user: {user}.");
             return true;
         }
 
+        public bool GetUser(string user, out TwitchDup dup)
+        {
+            dup = _nicknames.FirstOrDefault(d => d.Username.Equals(user));
+            return dup != null;
+        }
+
         public void Disconnect()
         {
+            PUtil.LogDebug("Disconnecting from Twitch chat.");
             _listener.StopListening();
             _listener = null;
         }
-        
+
         public bool IsConnected() => _listener is { Connected: true };
     }
 
