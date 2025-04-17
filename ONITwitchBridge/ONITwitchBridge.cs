@@ -14,12 +14,14 @@ namespace ONITwitchBridge
         public static IrcClient IrcClient;
         public static List<SkillGroup> Skills = new List<SkillGroup>();
         public static Settings Settings;
+        public static string ModFolderPath;
 
         public override void OnLoad(Harmony harmony)
         {
             base.OnLoad(harmony);
             PUtil.InitLibrary(false);
             new POptions().RegisterOptions(this, typeof(Settings));
+            ModFolderPath = path;
         }
     }
 
@@ -84,8 +86,9 @@ namespace ONITwitchBridge
         {
             if (!(delivery is MinionStartingStats minion)) return;
             var name = minion.Name;
-            if (ONITwitchBridge.IrcClient.RemoveUser(name))
-                ONITwitchBridge.IrcClient.SendMessage($"{name} has been accepted as a Duplicant. Welcome to the colony!");
+            ONITwitchBridge.IrcClient.GetUser(name, out var dup);
+            dup.GetGameDup().CanJoin = false;
+            ONITwitchBridge.IrcClient.SendMessage($"{name} has been accepted as a Duplicant. Welcome to the colony!");
         }
     }
 }
