@@ -40,6 +40,11 @@ namespace ONITwitchBridge
         [Option("Save type", "Select how registered users are saved.")]
         [JsonProperty]
         public SaveType SaveType { get; set; } = SaveType.Colony;
+        
+        [Option("Disable main skill customization",
+            "Disable the main skill customization. This will disable the main skill customization for all users.")]
+        [JsonProperty]
+        public bool DisableMainSkillCustomization { get; set; } = false;
     }
 
     public enum SaveType

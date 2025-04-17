@@ -1,13 +1,18 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using System.Linq;
+using Database;
+using HarmonyLib;
 using KMod;
 using PeterHan.PLib.Core;
 using PeterHan.PLib.Options;
+using UnityEngine;
 
 namespace ONITwitchBridge
 {
     public class ONITwitchBridge : UserMod2
     {
         public static IrcClient IrcClient;
+        public static List<SkillGroup> Skills = new List<SkillGroup>();
         public static Settings Settings;
 
         public override void OnLoad(Harmony harmony)
@@ -15,6 +20,18 @@ namespace ONITwitchBridge
             base.OnLoad(harmony);
             PUtil.InitLibrary(false);
             new POptions().RegisterOptions(this, typeof(Settings));
+        }
+    }
+
+    [HarmonyPatch(typeof(Db), nameof(Db.Initialize))]
+    public static class PatchDbInitialize
+    {
+        public static void Postfix(Db __instance)
+        {
+            foreach (SkillGroup skillGroup in __instance.SkillGroups.resources)
+            {
+                ONITwitchBridge.Skills.Add(skillGroup);
+            }
         }
     }
 
@@ -44,8 +61,19 @@ namespace ONITwitchBridge
     [HarmonyPatch(typeof(MinionStartingStats), "GenerateStats")]
     public static class PatchGenerateStats
     {
-        public static void Postfix(MinionStartingStats __instance) =>
-            __instance.Name = ONITwitchBridge.IrcClient.GetRandomUser(__instance.Name);
+        public static void Postfix(MinionStartingStats __instance)
+        {
+            PUtil.LogDebug($"Skills of {__instance.Name}:");
+            foreach (var (key, value) in __instance.skillAptitudes)
+            {
+                PUtil.LogDebug($"{((IListableOption) key).GetProperName()}: {value}");
+            }
+
+            __instance.Name = ONITwitchBridge.IrcClient
+                .GetRandomUser(new Dup(__instance.Name),
+                    __instance.skillAptitudes.Where(apt => Mathf.Approximately(apt.Value, 1)).ToDictionary(p => p.Key, p => p.Value).Keys)
+                .Username;
+        }
     }
 
     [HarmonyPatch(typeof(Telepad), "OnAcceptDelivery")]
