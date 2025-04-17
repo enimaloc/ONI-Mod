@@ -82,6 +82,7 @@ namespace ONITwitchBridge
                     $"Set what? Use {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.HELP} {IrcCommand.Command.SET} for help.";
 
             string subCommand = args[0].ToLower();
+            TwitchDup dup;
             switch (subCommand)
             {
                 case "mainskill":
@@ -92,12 +93,23 @@ namespace ONITwitchBridge
                             ((IListableOption)s).GetProperName().Equals(args[1], StringComparison.OrdinalIgnoreCase)))
                         return
                             $"Invalid skill: {args[1]}. Possible values: {string.Join(", ", ONITwitchBridge.Skills)}";
-                    if (!_ircClient.GetUser(user, out var dup))
+                    if (!_ircClient.GetUser(user, out dup))
                         return
                             $"{user}, you are not in the list of potential Duplicants. Use {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.JOIN} to join.";
                     dup.SetMainSkill(ONITwitchBridge.Skills.FirstOrDefault(s =>
                         ((IListableOption)s).GetProperName().Equals(args[1], StringComparison.OrdinalIgnoreCase)));
                     return $"Main skill set to {args[1]} for {user}.";
+                case "gender":
+                    if (args.Length < 2) return Help(user, arg, args);
+                    var possibleValues = new[] { TwitchDup.GENDER_MALE, TwitchDup.GENDER_FEMALE, "Other" };
+                    if (!possibleValues.Any(s => s.Equals(args[1], StringComparison.OrdinalIgnoreCase)))
+                        return $"Invalid gender: {args[1]}. Possible values: {string.Join(", ", possibleValues)}";
+                    if (!_ircClient.GetUser(user, out dup))
+                        return
+                            $"{user}, you are not in the list of potential Duplicants. Use {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.JOIN} to join.";
+                    dup.SetGender(possibleValues.FirstOrDefault(s =>
+                        s.Equals(args[1], StringComparison.OrdinalIgnoreCase)));
+                    return $"Gender set to {args[1]} for {user}.";
                 default:
                     return Help(user, arg, args);
             }

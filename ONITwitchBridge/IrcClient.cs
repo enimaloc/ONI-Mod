@@ -94,12 +94,13 @@ namespace ONITwitchBridge
             _listener.Irc.SendChatMessage(message);
         }
 
-        public Dup GetRandomUser(Dup or, Dictionary<SkillGroup, float>.KeyCollection skillsHint)
+        public Dup GetRandomUser(Dup or, Dictionary<SkillGroup, float>.KeyCollection skillsHint, string genderKey)
         {
             var available = new TwitchDup[_nicknames.Count];
             _nicknames.CopyTo(available);
             available = available.Where(dup =>
                 (skillsHint.Any(dup.IsMainSkilled) || dup.HasNoMainSkill())
+                && genderKey.Equals(dup.Gender)
                 && !disallowedNicknames.Contains(dup.Username)
             ).ToArray();
             if (available.Length != 0)

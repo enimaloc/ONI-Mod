@@ -71,7 +71,8 @@ namespace ONITwitchBridge
 
             __instance.Name = ONITwitchBridge.IrcClient
                 .GetRandomUser(new Dup(__instance.Name),
-                    __instance.skillAptitudes.Where(apt => Mathf.Approximately(apt.Value, 1)).ToDictionary(p => p.Key, p => p.Value).Keys)
+                    __instance.skillAptitudes.Where(apt => Mathf.Approximately(apt.Value, 1)).ToDictionary(p => p.Key, p => p.Value).Keys,
+                    __instance.GenderStringKey)
                 .Username;
         }
     }
