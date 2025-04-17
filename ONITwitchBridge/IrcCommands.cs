@@ -28,7 +28,12 @@
                 string command = args[0].ToLower();
                 if (_ircClient.Commands.TryGetValue(command, out ICommand cmd))
                 {
-                    return cmd.Help(user, arg, args);
+                    string newArg = arg.Contains(" ")
+                        ? arg.Substring(arg.IndexOf(" ", StringComparison.Ordinal) + 1)
+                        : "";
+                    string[] newArgs = new string[args.Length - 1];
+                    Array.Copy(args, 1, newArgs, 0, args.Length - 1);
+                    return cmd.Help(user, newArg, newArgs);
                 }
             }
 
