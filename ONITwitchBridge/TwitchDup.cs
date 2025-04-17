@@ -1,4 +1,5 @@
-﻿using Database;
+﻿using System;
+using Database;
 using Newtonsoft.Json;
 
 namespace ONITwitchBridge
@@ -6,8 +7,12 @@ namespace ONITwitchBridge
     [JsonObject(MemberSerialization.OptIn)]
     public class TwitchDup : Dup
     {
+        public const string GENDER_MALE = "Male";
+        public const string GENDER_FEMALE = "Female";
+        public const string GENDER_OTHER = "NB";
         [JsonProperty] public new string Username;
         [JsonProperty] public string MainSkill { get; private set; }
+        [JsonProperty] public string Gender { get; private set; }
 
         public TwitchDup(string username) : base(username)
         {
@@ -29,6 +34,15 @@ namespace ONITwitchBridge
         }
 
         public bool HasNoMainSkill() => string.IsNullOrEmpty(MainSkill);
+
+        public void SetGender(string gender)
+        {
+            if (!gender.Equals(GENDER_MALE, StringComparison.OrdinalIgnoreCase) && !gender.Equals(GENDER_FEMALE, StringComparison.OrdinalIgnoreCase))
+            {
+                gender = GENDER_OTHER;
+            }
+            Gender = gender;
+        }
     }
 
     public class Dup
