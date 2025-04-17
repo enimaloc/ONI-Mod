@@ -29,11 +29,12 @@ namespace ONITwitchBridge
         }
     }
 
-    [HarmonyPatch(typeof(Game), nameof(Game.Destroy))]
+    [HarmonyPatch(typeof(Game), "DestroyInstances")]
     public static class PatchGameDestroy
     {
-        public static void Postfix(Game __instance)
+        public static void Postfix()
         {
+            if (ONITwitchBridge.IrcClient == null) return;
             ONITwitchBridge.IrcClient.Disconnect();
             ONITwitchBridge.IrcClient = null;
         }
