@@ -74,6 +74,11 @@ namespace ONITwitchBridge
 
             if (Commands.TryGetValue(command, out ICommand cmd))
             {
+                if (cmd.IsDisabled()) 
+                {
+                    SendMessage(cmd.GetDisabledReason());
+                    return;
+                }
                 var reply = cmd.Execute(user, arg, args);
                 if (!string.IsNullOrEmpty(reply))
                 {
@@ -142,11 +147,13 @@ namespace ONITwitchBridge
     {
         public string Name { get; }
         public string Help { get; }
+        public DisabledState Disabled { get; }
 
-        public Command(string name, string help)
+        public Command(string name, string help, string disabledReason = null)
         {
             Name = name.ToLower();
             Help = help;
+            Disabled = string.IsNullOrEmpty(disabledReason) ? DisabledState.FALSE : DisabledState.True(disabledReason);
         }
     }
 
@@ -165,5 +172,29 @@ namespace ONITwitchBridge
             var type = GetType().GetCustomAttribute<Command>();
             return $"Command: {(string.IsNullOrEmpty(arg) ? type.Name : type.Name + " " + arg)} - {help}";
         }
+        
+        public virtual DisabledState GetDisabledState() => GetType().GetCustomAttribute<Command>().Disabled;
+        
+        public virtual string GetDisabledReason() => $"This command is disabled because {GetDisabledState().Reason}";
+        
+        public virtual bool IsDisabled() => GetDisabledState().Disabled;
+    }
+
+    public class DisabledState
+    {
+        public static readonly DisabledState FALSE = False();
+        public static readonly DisabledState TRUE = True();
+        public readonly bool Disabled;
+        public readonly string Reason;
+        
+        private DisabledState(bool disabled, string reason)
+        {
+            Disabled = disabled;
+            Reason = reason;
+        }
+        
+        public static DisabledState True(string reason) => new DisabledState(true, reason);
+        public static DisabledState True() => True("unknown reason");
+        public static DisabledState False() => new DisabledState(false, "");
     }
 }

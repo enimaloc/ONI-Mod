@@ -28,24 +28,20 @@
                 string command = args[0].ToLower();
                 if (_ircClient.Commands.TryGetValue(command, out ICommand cmd))
                 {
-                    string newArg = arg.Contains(" ")
-                        ? arg.Substring(arg.IndexOf(" ", StringComparison.Ordinal) + 1)
-                        : "";
+                    if (cmd.IsDisabled())
+                        return $"{command} is disabled. Reason: {cmd.GetDisabledReason()}";
                     string[] newArgs = new string[args.Length - 1];
                     Array.Copy(args, 1, newArgs, 0, args.Length - 1);
-                    return cmd.Help(user, newArg, newArgs);
+                    return cmd.Help(user, arg.Contains(" ")
+                        ? arg.Substring(arg.IndexOf(" ", StringComparison.Ordinal) + 1)
+                        : "", newArgs);
                 }
             }
 
-            string commands = "";
-            foreach (var command in _ircClient.Commands)
-            {
-                commands += command.Key + ", ";
-            }
-
-            commands = commands.TrimEnd(',', ' ');
             return
-                $"Available commands: {commands}. Tip: an argument can be provided to view the help for a specific command " +
+                "Available commands: " +
+                $"{_ircClient.Commands.Where(command => !command.Value.IsDisabled()).Aggregate("", (current, command) => current + command.Key + ", ").TrimEnd(',', ' ')}" +
+                ". Tip: an argument can be provided to view the help for a specific command " +
                 $"(example: {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.HELP} {IrcCommand.Command.HELP}).";
         }
     }
