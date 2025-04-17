@@ -154,10 +154,16 @@ namespace ONITwitchBridge
     {
         public abstract string Execute(string user, string arg, string[] args);
 
-        public string Help(string user, string arg, string[] args)
+        public virtual string Help(string user, string arg, string[] args)
         {
             var type = GetType().GetCustomAttribute<Command>();
-            return $"Command: {type.Name} - {type.Help}";
+            return HelpHeader(user, arg, args, type.Help);
+        }
+
+        public string HelpHeader(string user, string arg, string[] args, string help)
+        {
+            var type = GetType().GetCustomAttribute<Command>();
+            return $"Command: {(string.IsNullOrEmpty(arg) ? type.Name : type.Name + " " + arg)} - {help}";
         }
     }
 }
