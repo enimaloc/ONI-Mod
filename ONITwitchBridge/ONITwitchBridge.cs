@@ -8,6 +8,7 @@ namespace ONITwitchBridge
     public class ONITwitchBridge : UserMod2
     {
         public static IrcClient IrcClient;
+        public static Settings Settings;
 
         public override void OnLoad(Harmony harmony)
         {
@@ -22,10 +23,10 @@ namespace ONITwitchBridge
     {
         public static void Postfix(Game __instance)
         {
-            Settings settings = POptions.ReadSettings<Settings>();
+            ONITwitchBridge.Settings = POptions.ReadSettings<Settings>();
             ONITwitchBridge.IrcClient = new IrcClient();
             ONITwitchBridge.IrcClient.RegisterCommands();
-            ONITwitchBridge.IrcClient.Connect(settings.Username, settings.OAuth, settings.Channel);
+            ONITwitchBridge.IrcClient.Connect(ONITwitchBridge.Settings.Username, ONITwitchBridge.Settings.OAuth, ONITwitchBridge.Settings.Channel);
         }
     }
 
