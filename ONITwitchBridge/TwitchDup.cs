@@ -5,6 +5,14 @@ using Newtonsoft.Json;
 namespace ONITwitchBridge
 {
     [JsonObject(MemberSerialization.OptIn)]
+    public class GameDup
+    {
+        [JsonProperty] public string Username;
+        [JsonProperty] public bool WantJoin;
+        [JsonProperty] public bool CanJoin;
+    }
+    
+    [JsonObject(MemberSerialization.OptIn)]
     public class TwitchDup : Dup
     {
         public const string GENDER_MALE = "Male";
@@ -42,6 +50,12 @@ namespace ONITwitchBridge
                 gender = GENDER_OTHER;
             }
             Gender = gender;
+        }
+
+        public GameDup GetGameDup()
+        {
+            var save = GameSaveStructure.Load();
+            return save.GetGameDup(Username) ?? save.AddGameDup(Username);
         }
     }
 

@@ -99,7 +99,9 @@ namespace ONITwitchBridge
             var available = new TwitchDup[_nicknames.Count];
             _nicknames.CopyTo(available);
             available = available.Where(dup =>
-                (skillsHint.Any(dup.IsMainSkilled) || dup.HasNoMainSkill())
+                dup.GetGameDup().WantJoin
+                && dup.GetGameDup().CanJoin
+                && (skillsHint.Any(dup.IsMainSkilled) || dup.HasNoMainSkill())
                 && genderKey.Equals(dup.Gender)
                 && !disallowedNicknames.Contains(dup.Username)
             ).ToArray();
@@ -137,8 +139,10 @@ namespace ONITwitchBridge
 
         public bool AddUser(string user)
         {
-            if (_nicknames.Any(dup => dup.Username.Equals(user))) return false;
-            _nicknames.Add(new TwitchDup(user));
+            if (_nicknames.Any(dup => dup.Username.Equals(user) && !dup.GetGameDup().CanJoin)) return false;
+            if (!_nicknames.Any(dup => dup.Username.Equals(user))) _nicknames.Add(new TwitchDup(user));
+            GetUser(user, out var dup);
+            dup.GetGameDup().WantJoin = true;
             PUtil.LogDebug($"Added user: {user}.");
             return true;
         }
