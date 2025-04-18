@@ -108,5 +108,18 @@ namespace enimaloc.onitb
 
             ONITwitchBridge.IrcClient.SendMessage($"{name} has been accepted as a Duplicant. Welcome to the colony!");
         }
+        
+        [HarmonyPatch(typeof(MinionIdentity), "OnDied")]
+        [HarmonyPostfix]
+        public static void MinionIdentityOnDied_Postfix(MinionIdentity __instance)
+        {
+            var name = __instance.GetProperName();
+            if (!Registry.Get().GameRegistry.Has(name)) return;
+            var dup = Registry.Get().GameRegistry.Get(name);
+            dup.InGame = false;
+            dup.WantJoin = false;
+
+            ONITwitchBridge.IrcClient.SendMessage($"{name} has died. Rest in peace.");
+        }
     }
 }

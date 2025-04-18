@@ -59,6 +59,10 @@ namespace enimaloc.onitb
             Add(item);
             return item;
         }
+        
+        public bool Has(T item) => Items.Contains(item);
+        
+        public bool Has(Predicate<T> predicate) => Items.Exists(predicate);
 
         public abstract string GetFilePath();
 
@@ -81,6 +85,8 @@ namespace enimaloc.onitb
             $"{ONITwitchBridge.ModFolderPath}/Saves/{SaveLoader.Instance.GameInfo.baseName}.json";
 
         public GameDup Get(string name) => GetOrCreate(dup => dup.Name == name, () => new GameDup(name));
+        
+        public bool Has(string name) => Has(dup => dup.Name == name);
 
         public override string GetFilePath() => FilePath;
 
@@ -113,6 +119,8 @@ namespace enimaloc.onitb
         }
 
         public TwitchDup Get(string name) => GetOrCreate(dup => dup.Name == name, () => new TwitchDup(name));
+        
+        public bool Has(string name) => Has(dup => dup.Name == name);
 
         public override string GetFilePath() => FilePath;
     }
