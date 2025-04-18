@@ -36,10 +36,11 @@ namespace enimaloc.onitb
             ONITwitchBridge.Skills.AddRange(__instance.SkillGroups.resources);
         }
 
-        [HarmonyPatch(typeof(Game), nameof(Game.Load))]
+        [HarmonyPatch(typeof(Game), "OnSpawn")]
         [HarmonyPostfix]
-        public static void GameLoad_Postfix(Game __instance)
+        public static void GameOnSpawn_Postfix(Game __instance)
         {
+            PUtil.LogDebug("ONITwitchBridge: Launching...");
             ONITwitchBridge.Settings = POptions.ReadSettings<Settings>();
 
             ONITwitchBridge.IrcClient = new IrcClient();
