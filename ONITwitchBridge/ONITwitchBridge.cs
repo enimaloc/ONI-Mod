@@ -33,7 +33,13 @@ namespace enimaloc.onitb
         [HarmonyPostfix]
         public static void DbInitialize_Postfix(Db __instance)
         {
-            ONITwitchBridge.Skills.AddRange(__instance.SkillGroups.resources);
+            for (var i = 0; i < __instance.SkillGroups.Count; i++)
+            {
+                var skillGroup = __instance.SkillGroups[i];
+                if (!DlcManager.FeatureClusterSpaceEnabled() && skillGroup.Id.Equals("Rocketry")) return;
+                ONITwitchBridge.Skills.Add(skillGroup);
+            }
+
         }
 
         [HarmonyPatch(typeof(Game), "OnSpawn")]

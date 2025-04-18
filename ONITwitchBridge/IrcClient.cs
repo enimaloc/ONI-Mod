@@ -185,7 +185,7 @@ namespace enimaloc.onitb
             HelpHeader(user, arg, args, GetType().GetCustomAttribute<Command>().Help);
 
         protected string HelpHeader(string user, string arg, string[] args, string help) =>
-            $"Command: {GetType().GetCustomAttribute<Command>()}{(string.IsNullOrEmpty(arg) ? " " + arg : "")} - {help}";
+            $"Command: {GetType().GetCustomAttribute<Command>().Name}{(string.IsNullOrEmpty(arg) ? " " + arg : "")} - {help}";
 
         public virtual DisabledState GetDisabledState()
             => GetType().GetCustomAttribute<Command>()?.Disabled ?? DisabledState.False();
