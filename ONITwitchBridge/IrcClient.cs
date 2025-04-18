@@ -13,7 +13,6 @@ namespace ONITwitchBridge
     public class IrcClient
     {
         public const string ANON_USERNAME = "justinfan12345";
-        private List<TwitchDup> _nicknames = new List<TwitchDup>();
         public Dictionary<string, ICommand> Commands;
         private ChatListener _listener;
         private bool _anonymous;
@@ -73,13 +72,14 @@ namespace ONITwitchBridge
                 : "";
             string[] args = arg.Split(new[] { " " }, StringSplitOptions.RemoveEmptyEntries);
 
-            if (Commands.TryGetValue(command, out ICommand cmd))
+            if (Commands.TryGetValue(command, out var cmd))
             {
-                if (cmd.IsDisabled()) 
+                if (cmd.IsDisabled())
                 {
                     SendMessage(cmd.GetDisabledReason());
                     return;
                 }
+
                 var reply = cmd.Execute(user, arg, args);
                 if (!string.IsNullOrEmpty(reply))
                 {
@@ -96,20 +96,20 @@ namespace ONITwitchBridge
 
         public Dup GetRandomUser(Dup or, Dictionary<SkillGroup, float>.KeyCollection skillsHint, string genderKey)
         {
-            var available = new TwitchDup[_nicknames.Count];
-            _nicknames.CopyTo(available);
+            var twitchReg = Registry.Get().TwitchRegistry;
+            var available = new TwitchDup[twitchReg.Count];
+            twitchReg.CopyTo(available);
             available = available.Where(dup =>
-                dup.GetGameDup().WantJoin
-                && dup.GetGameDup().CanJoin
-                && (skillsHint.Any(dup.IsMainSkilled) || dup.HasNoMainSkill())
+                !dup.GetGameScope().CanBeSelected()
+                && (skillsHint.Any(dup.IsMainSkilled) || !dup.HasMainSkill())
                 && genderKey.Equals(dup.Gender)
-                && !disallowedNicknames.Contains(dup.Username)
+                && !disallowedNicknames.Contains(dup.Name)
             ).ToArray();
             if (available.Length != 0)
             {
                 Dup get = available.GetRandom();
                 int attempts = 0;
-                while (disallowedNicknames.Contains(get.Username) && attempts < 10)
+                while (disallowedNicknames.Contains(get.Name) && attempts < 10)
                 {
                     get = available.GetRandom();
                     attempts++;
@@ -124,33 +124,9 @@ namespace ONITwitchBridge
                 or = get;
             }
 
-            disallowedNicknames[cursor] = or.Username;
+            disallowedNicknames[cursor] = or.Name;
             cursor = (cursor + 1) % disallowedNicknames.Length;
             return or;
-        }
-
-        public bool RemoveUser(string user)
-        {
-            if (!_nicknames.Any(dup => dup.Username.Equals(user))) return false;
-            _nicknames.Remove(_nicknames.Find(dup => dup.Username.Equals(user)));
-            PUtil.LogDebug($"Removed user: {user}.");
-            return true;
-        }
-
-        public bool AddUser(string user)
-        {
-            if (_nicknames.Any(dup => dup.Username.Equals(user) && !dup.GetGameDup().CanJoin)) return false;
-            if (!_nicknames.Any(dup => dup.Username.Equals(user))) _nicknames.Add(new TwitchDup(user));
-            GetUser(user, out var dup);
-            dup.GetGameDup().WantJoin = true;
-            PUtil.LogDebug($"Added user: {user}.");
-            return true;
-        }
-
-        public bool GetUser(string user, out TwitchDup dup)
-        {
-            dup = _nicknames.FirstOrDefault(d => d.Username.Equals(user));
-            return dup != null;
         }
 
         public void Disconnect()
@@ -193,11 +169,11 @@ namespace ONITwitchBridge
             var type = GetType().GetCustomAttribute<Command>();
             return $"Command: {(string.IsNullOrEmpty(arg) ? type.Name : type.Name + " " + arg)} - {help}";
         }
-        
+
         public virtual DisabledState GetDisabledState() => GetType().GetCustomAttribute<Command>().Disabled;
-        
+
         public virtual string GetDisabledReason() => $"This command is disabled because {GetDisabledState().Reason}";
-        
+
         public virtual bool IsDisabled() => GetDisabledState().Disabled;
     }
 
@@ -207,13 +183,13 @@ namespace ONITwitchBridge
         public static readonly DisabledState TRUE = True();
         public readonly bool Disabled;
         public readonly string Reason;
-        
+
         private DisabledState(bool disabled, string reason)
         {
             Disabled = disabled;
             Reason = reason;
         }
-        
+
         public static DisabledState True(string reason) => new DisabledState(true, reason);
         public static DisabledState True() => True("unknown reason");
         public static DisabledState False() => new DisabledState(false, "");
