@@ -60,9 +60,9 @@ namespace ONITwitchBridge
             _ircClient = ircClient;
         }
 
-        public override string Execute(string user, string arg, string[] args) => _ircClient.AddUser(user)
+        public override string Execute(string user, string arg, string[] args) => Registry.Get().GameRegistry.GetDup(user).Join()
             ? $"{user} has joined the list to be a Dups."
-            : $"{user}, you are already in the list of potential Duplicants.";
+            : $"{user}, you are already in the list of potential Duplicants or you are a Dup.";
     }
 
     [Command(IrcCommand.Command.SET, "allow you to customize your Dup. Available subcommands: mainSkill.")]
@@ -93,20 +93,16 @@ namespace ONITwitchBridge
                             ((IListableOption)s).GetProperName().Equals(args[1], StringComparison.OrdinalIgnoreCase)))
                         return
                             $"Invalid skill: {args[1]}. Possible values: {string.Join(", ", ONITwitchBridge.Skills)}";
-                    if (!_ircClient.GetUser(user, out dup))
-                        return
-                            $"{user}, you are not in the list of potential Duplicants. Use {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.JOIN} to join.";
+                    dup = Registry.Get().TwitchRegistry.GetDup(user);
                     dup.SetMainSkill(ONITwitchBridge.Skills.FirstOrDefault(s =>
                         ((IListableOption)s).GetProperName().Equals(args[1], StringComparison.OrdinalIgnoreCase)));
                     return $"Main skill set to {args[1]} for {user}.";
                 case "gender":
                     if (args.Length < 2) return Help(user, arg, args);
-                    var possibleValues = new[] { TwitchDup.GENDER_MALE, TwitchDup.GENDER_FEMALE, "Other" };
+                    var possibleValues = new[] { Dup.GENDER_MALE, Dup.GENDER_FEMALE, "Other" };
                     if (!possibleValues.Any(s => s.Equals(args[1], StringComparison.OrdinalIgnoreCase)))
                         return $"Invalid gender: {args[1]}. Possible values: {string.Join(", ", possibleValues)}";
-                    if (!_ircClient.GetUser(user, out dup))
-                        return
-                            $"{user}, you are not in the list of potential Duplicants. Use {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.JOIN} to join.";
+                    dup = Registry.Get().TwitchRegistry.GetDup(user);
                     dup.SetGender(possibleValues.FirstOrDefault(s =>
                         s.Equals(args[1], StringComparison.OrdinalIgnoreCase)));
                     return $"Gender set to {args[1]} for {user}.";
@@ -127,6 +123,27 @@ namespace ONITwitchBridge
                         $"Set the main skill of your Dup. Possible values: {string.Join(", ", ONITwitchBridge.Skills)}");
                 default: return base.Help(user, arg, args);
             }
+        }
+    }
+    
+    [Command("info", "get your Dup info.")]
+    public class Info : ICommand
+    {
+        private IrcClient _ircClient;
+
+        public Info(IrcClient ircClient)
+        {
+            _ircClient = ircClient;
+        }
+
+        public override string Execute(string user, string arg, string[] args)
+        {
+            var twitchDup = Registry.Get().TwitchRegistry.GetDup(user);
+            var gameDup = twitchDup.GetGameScope();
+            return $"Your dup is {(string.IsNullOrEmpty(twitchDup.Gender) ? "" : $"a {twitchDup.Gender} ")}" +
+                   $"named {user}" +
+                   $"{(string.IsNullOrEmpty(twitchDup.MainSkill) ? "" : $" specialized in {twitchDup.MainSkill}")}. " +
+                   $"{(gameDup.InGame ? $"You live in {SaveLoader.Instance.GameInfo.baseName}." : (gameDup.InGame ? $"You are in the queue to be print in {SaveLoader.Instance.GameInfo.baseName}." : ""))}";
         }
     }
 }

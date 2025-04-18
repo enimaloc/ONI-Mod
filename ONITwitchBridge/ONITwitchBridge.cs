@@ -6,6 +6,7 @@ using KMod;
 using PeterHan.PLib.Core;
 using PeterHan.PLib.Options;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace ONITwitchBridge
 {
@@ -45,7 +46,18 @@ namespace ONITwitchBridge
             ONITwitchBridge.Settings = POptions.ReadSettings<Settings>();
             ONITwitchBridge.IrcClient = new IrcClient();
             ONITwitchBridge.IrcClient.RegisterCommands();
-            ONITwitchBridge.IrcClient.Connect(ONITwitchBridge.Settings.Username, ONITwitchBridge.Settings.OAuth, ONITwitchBridge.Settings.Channel);
+            ONITwitchBridge.IrcClient.Connect(ONITwitchBridge.Settings.Username, ONITwitchBridge.Settings.OAuth,
+                ONITwitchBridge.Settings.Channel);
+            Registry.Get().Initialize();
+        }
+    }
+    
+    [HarmonyPatch(typeof(Game), nameof(Game.Save))]
+    public static class PatchGameSave
+    {
+        public static void Postfix(Game __instance)
+        {
+            Registry.Get().Save();
         }
     }
 
@@ -68,14 +80,15 @@ namespace ONITwitchBridge
             PUtil.LogDebug($"Skills of {__instance.Name}:");
             foreach (var (key, value) in __instance.skillAptitudes)
             {
-                PUtil.LogDebug($"{((IListableOption) key).GetProperName()}: {value}");
+                PUtil.LogDebug($"{((IListableOption)key).GetProperName()}: {value}");
             }
 
             __instance.Name = ONITwitchBridge.IrcClient
                 .GetRandomUser(new Dup(__instance.Name),
-                    __instance.skillAptitudes.Where(apt => Mathf.Approximately(apt.Value, 1)).ToDictionary(p => p.Key, p => p.Value).Keys,
+                    __instance.skillAptitudes.Where(apt => Mathf.Approximately(apt.Value, 1))
+                        .ToDictionary(p => p.Key, p => p.Value).Keys,
                     __instance.GenderStringKey)
-                .Username;
+                .Name;
         }
     }
 
@@ -86,8 +99,8 @@ namespace ONITwitchBridge
         {
             if (!(delivery is MinionStartingStats minion)) return;
             var name = minion.Name;
-            ONITwitchBridge.IrcClient.GetUser(name, out var dup);
-            dup.GetGameDup().CanJoin = false;
+            var dup = Registry.Get().GameRegistry.GetDup(name);
+            dup.InGame = true;
             ONITwitchBridge.IrcClient.SendMessage($"{name} has been accepted as a Duplicant. Welcome to the colony!");
         }
     }
