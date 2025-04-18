@@ -1,0 +1,96 @@
+stages:
+  - build
+  - zip
+  - changelog
+  - release
+
+variables:
+  BUILD_OUTPUT: "build"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+before_script:
+  - 'export MOD_NAME=$(echo $CI_COMMIT_REF_NAME | sed "s|dev/||")'
+  - 'echo "Mod name: $MOD_NAME"'
+
+build_mod:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^dev\/.+$/ && $CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - cd $MOD_NAME
+    - mkdir -p ../../$BUILD_OUTPUT/$MOD_NAME
+    - dotnet restore
+    - dotnet build -c Release -o ../../$BUILD_OUTPUT/$MOD_NAME
+    - |
+      # Repack avec ILRepack si nécessaire
+      ilrepack /out:../../$BUILD_OUTPUT/$MOD_NAME/$MOD_NAME.dll $(find ../../$BUILD_OUTPUT/$MOD_NAME -name '*.dll')
+  artifacts:
+    paths:
+      - $BUILD_OUTPUT/
+
+zip_mod:
+  stage: zip
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_COMMIT_BRANCH == "master"'
+  dependencies:
+    - build_mod
+  script:
+    - cd $BUILD_OUTPUT/$MOD_NAME
+    - cp ../../$MOD_NAME/mod.yaml . || true
+    - cp ../../$MOD_NAME/mod-info.yaml . || true
+    - cp ../../$MOD_NAME/cover.png . || true
+    - zip -r $MOD_NAME.zip $MOD_NAME.dll mod.yaml mod-info.yaml cover.png 2>/dev/null || true
+  artifacts:
+    paths:
+      - $BUILD_OUTPUT/$MOD_NAME/$MOD_NAME.zip
+
+generate_changelog:
+  stage: changelog
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_COMMIT_BRANCH == "master"'
+  script:
+    - export CHANGELOG=$(git log --pretty=format:"%s" $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD | grep -E "^(feat|fix|docs|refactor|chore|style|test)\:" | sed 's/^/- /')
+    - echo "$CHANGELOG" > changelog.txt
+  artifacts:
+    paths:
+      - changelog.txt
+
+create_release:
+  stage: release
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_COMMIT_BRANCH == "master"'
+  dependencies:
+    - zip_mod
+    - generate_changelog
+  script:
+    - export TAG="$MOD_NAME-$(date +%Y%m%d%H%M)"
+    - export CHANGELOG=$(cat changelog.txt)
+    
+    # Créer une release vide
+    - >
+      curl --request POST --header "PRIVATE-TOKEN: $CI_JOB_TOKEN" 
+        --header "Content-Type: application/json"
+        --data "{
+          \"name\": \"$MOD_NAME Release - $CI_COMMIT_SHORT_SHA\",
+          \"tag_name\": \"$TAG\",
+          \"description\": \"$CHANGELOG\"
+        }"
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
+    
+    # Uploader le zip
+    - >
+      curl --request POST --header "PRIVATE-TOKEN: $CI_JOB_TOKEN"
+        --form "file=@$BUILD_OUTPUT/$MOD_NAME/$MOD_NAME.zip"
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/uploads" > upload.json
+    
+    - export FILE_URL=$(cat upload.json | jq -r .url)
+    
+    # Ajouter le fichier à la release
+    - >
+      curl --request POST --header "PRIVATE-TOKEN: $CI_JOB_TOKEN"
+        --data "{
+          \"name\": \"$MOD_NAME.zip\",
+          \"url\": \"$CI_PROJECT_URL$FILE_URL\"
+        }"
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$TAG/assets/links"
