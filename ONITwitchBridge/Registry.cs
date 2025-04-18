@@ -1,143 +1,120 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Database;
 using Newtonsoft.Json;
+using PeterHan.PLib.Core;
 
-namespace ONITwitchBridge
+namespace enimaloc.onitb
 {
     public class Registry
     {
-        private static Registry _Instance;
-        private JsonSerializer _Serializer = new JsonSerializer();
+        private static Registry _instance;
+        private readonly JsonSerializer _serializer = new JsonSerializer();
+
         public TwitchRegistry TwitchRegistry { get; private set; }
         public GameRegistry GameRegistry { get; private set; }
 
-        public static Registry Get() => _Instance ?? new Registry();
+        public static Registry Get() => _instance ?? new Registry();
 
         public Registry Initialize()
         {
-            _Instance = this;
-            TwitchRegistry = TwitchRegistry.Initialize(_Serializer);
-            GameRegistry = GameRegistry.Initialize(_Serializer);
+            _instance = this;
+            TwitchRegistry = TwitchRegistry.Initialize(_serializer);
+            GameRegistry = GameRegistry.Initialize(_serializer);
             return this;
         }
 
         public void Save()
         {
-            GameRegistry.Save(_Serializer);
-            TwitchRegistry.Save(_Serializer);
+            GameRegistry.Save(_serializer);
+            TwitchRegistry.Save(_serializer);
         }
     }
 
-    [JsonObject(MemberSerialization.OptIn)]
-    public class GameRegistry
+    public abstract class RegistryBase<T> where T : class
     {
-        [JsonProperty] public List<GameDup> GameDups { get; private set; }
-        public int Count => GameDups.Count;
-        
-        public void CopyTo(GameDup[] array) => GameDups.CopyTo(array);
-        
-        public GameRegistry()
+        [JsonProperty] public List<T> Items = new List<T>();
+
+        public int Count => Items.Count;
+
+        public void CopyTo(T[] array) => Items.CopyTo(array);
+
+        public void Add(T item)
         {
-            GameDups = new List<GameDup>();
-        }
-        
-        public void AddDup(GameDup dup)
-        {
-            if (!GameDups.Exists(x => x.Name == dup.Name)) GameDups.Add(dup);
-        }
-        
-        public void RemoveDup(string name)
-        {
-            if (GameDups.Exists(x => x.Name == name)) GameDups.Remove(GameDups.Find(x => x.Name == name));
-        }
-        
-        public GameDup GetDup(string name)
-        {
-            if (!GameDups.Exists(x => x.Name == name)) GameDups.Add(new GameDup(name));
-            return GameDups.Find(x => x.Name == name);
+            if (Items.All(x => x != item)) Items.Add(item);
         }
 
-        public static GameRegistry Initialize(JsonSerializer serializer)
-        {
-            var currentSaveName = SaveLoader.Instance.GameInfo.baseName;
-            var fullPath = $"{ONITwitchBridge.ModFolderPath}/Saves/{currentSaveName}.json";
-            if (!File.Exists(fullPath))
-            {
-                return new GameRegistry();
-            }
+        public void Remove(T item) => Items.Remove(item);
 
-            using var textReader = new StreamReader(fullPath);
-            using var jsonReader = new JsonTextReader(textReader);
-            return serializer.Deserialize<GameRegistry>(jsonReader);
+        public T Get(Predicate<T> predicate) => Items.Find(predicate);
+
+        public T GetOrCreate(Predicate<T> predicate, Func<T> createFunc)
+        {
+            var item = Get(predicate);
+            if (item != null) return item;
+
+            item = createFunc();
+            Add(item);
+            return item;
         }
+
+        public abstract string GetFilePath();
 
         public void Save(JsonSerializer serializer)
         {
-            var currentSaveName = SaveLoader.Instance.GameInfo.baseName;
-            var folderPath = $"{ONITwitchBridge.ModFolderPath}/Saves";
-            var fullPath = $"{folderPath}/{currentSaveName}.json";
-            if (!Directory.Exists(folderPath))
-            {
-                Directory.CreateDirectory(folderPath);
-            }
+            PUtil.LogDebug($"Saving {GetType().Name} registry to {GetFilePath()}");
+            var path = GetFilePath();
+            if (!Directory.Exists(path.Substring(path.LastIndexOf("/", StringComparison.Ordinal)))) Directory.CreateDirectory(path.Substring(path.LastIndexOf("/", StringComparison.Ordinal)));
 
-            using var textWriter = new StreamWriter(fullPath);
+            using var textWriter = new StreamWriter(path);
             using var jsonWriter = new JsonTextWriter(textWriter);
             serializer.Serialize(jsonWriter, this);
         }
     }
 
     [JsonObject(MemberSerialization.OptIn)]
-    public class TwitchRegistry
+    public class GameRegistry : RegistryBase<GameDup>
     {
-        [JsonProperty] public List<TwitchDup> TwitchDups { get; private set; }
-        public int Count => TwitchDups.Count;
-        
-        public void CopyTo(TwitchDup[] array) => TwitchDups.CopyTo(array);
+        public static readonly string FilePath =
+            $"{ONITwitchBridge.ModFolderPath}/Saves/{SaveLoader.Instance.GameInfo.baseName}.json";
 
-        public TwitchRegistry()
+        public GameDup Get(string name) => GetOrCreate(dup => dup.Name == name, () => new GameDup(name));
+
+        public override string GetFilePath() => FilePath;
+
+        public static GameRegistry Initialize(JsonSerializer serializer)
         {
-            TwitchDups = new List<TwitchDup>();
+            PUtil.LogDebug($"Loading GameRegistry registry from {FilePath}");
+            var path = FilePath;
+            if (!File.Exists(path)) return new GameRegistry();
+
+            using var textReader = new StreamReader(path);
+            using var jsonReader = new JsonTextReader(textReader);
+            return serializer.Deserialize<GameRegistry>(jsonReader);
         }
-        
-        public void AddDup(TwitchDup dup)
-        {
-            if (!TwitchDups.Exists(x => x.Name == dup.Name)) TwitchDups.Add(dup);
-        }
-        
-        public void RemoveDup(string name)
-        {
-            if (TwitchDups.Exists(x => x.Name == name)) TwitchDups.Remove(TwitchDups.Find(x => x.Name == name));
-        }
-        
-        public TwitchDup GetDup(string name)
-        {
-            if (!TwitchDups.Exists(x => x.Name == name)) TwitchDups.Add(new TwitchDup(name));
-            return TwitchDups.Find(x => x.Name == name);
-        }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class TwitchRegistry : RegistryBase<TwitchDup>
+    {
+        public static readonly string FilePath = $"{ONITwitchBridge.ModFolderPath}/global.json";
 
         public static TwitchRegistry Initialize(JsonSerializer serializer)
         {
+            PUtil.LogDebug($"Loading TwitchRegistry registry from {FilePath}");
             var fullPath = $"{ONITwitchBridge.ModFolderPath}/global.json";
-            if (!File.Exists(fullPath))
-            {
-                return new TwitchRegistry();
-            }
+            if (!File.Exists(fullPath)) return new TwitchRegistry();
 
             using var textReader = new StreamReader(fullPath);
             using var jsonReader = new JsonTextReader(textReader);
             return serializer.Deserialize<TwitchRegistry>(jsonReader);
         }
 
-        public void Save(JsonSerializer serializer)
-        {
-            var fullPath = $"{ONITwitchBridge.ModFolderPath}/global.json";
+        public TwitchDup Get(string name) => GetOrCreate(dup => dup.Name == name, () => new TwitchDup(name));
 
-            using var textWriter = new StreamWriter(fullPath);
-            using var jsonWriter = new JsonTextWriter(textWriter);
-            serializer.Serialize(jsonWriter, this);
-        }
+        public override string GetFilePath() => FilePath;
     }
 
     [JsonObject(MemberSerialization.OptIn)]
@@ -145,12 +122,12 @@ namespace ONITwitchBridge
     {
         [JsonProperty] public string Name { get; private set; }
         [JsonProperty] public bool WantJoin { get; set; }
-        [JsonProperty] public bool InGame { get; set; } = true;
-        
+        [JsonProperty] public bool InGame { get; set; }
+
         public GameDup(string name) => Name = name;
 
-        public TwitchDup GetGlobalScope() => Registry.Get().TwitchRegistry.GetDup(Name);
-        
+        public TwitchDup GetGlobalScope() => Registry.Get().TwitchRegistry.Get(Name);
+
         public bool CanBeSelected() => WantJoin && !InGame;
 
         public bool Join()
@@ -167,25 +144,22 @@ namespace ONITwitchBridge
         [JsonProperty] public new string Name { get; private set; }
         [JsonProperty] public string MainSkill { get; set; }
         [JsonProperty] public string Gender { get; set; }
-        
+
         public TwitchDup(string name) : base(name) => Name = name;
-        
-        public GameDup GetGameScope() => Registry.Get().GameRegistry.GetDup(Name);
+
+        public GameDup GetGameScope() => Registry.Get().GameRegistry.Get(Name);
 
         public bool IsMainSkilled(SkillGroup arg) => HasMainSkill() && arg.Id == MainSkill;
         public bool HasMainSkill() => MainSkill != null;
 
         public void SetMainSkill(SkillGroup skill) => MainSkill = skill.Id;
 
-        public void SetGender(string gender)
+        public void SetGender(string gender) => Gender = gender switch
         {
-            if (!gender.Equals(GENDER_MALE) && !gender.Equals(GENDER_FEMALE))
-            {
-                gender = GENDER_OTHER;
-            }
-
-            Gender = gender;
-        }
+            _ when gender == GENDER_MALE => GENDER_MALE,
+            _ when gender == GENDER_FEMALE => GENDER_FEMALE,
+            _ => GENDER_OTHER
+        };
     }
 
     public class Dup
@@ -194,7 +168,7 @@ namespace ONITwitchBridge
         public static string GENDER_FEMALE = "Female";
         public static string GENDER_OTHER = "NB";
         public string Name { get; private set; }
-        
+
         public Dup(string name) => Name = name;
     }
 }
