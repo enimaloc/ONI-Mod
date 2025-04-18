@@ -3,7 +3,6 @@ using System.Linq;
 using Database;
 using HarmonyLib;
 using KMod;
-using ONITwitchBridge;
 using PeterHan.PLib.Core;
 using PeterHan.PLib.Options;
 using UnityEngine;
@@ -53,7 +52,7 @@ namespace enimaloc.onitb
             ONITwitchBridge.IrcClient.RegisterCommands();
             ONITwitchBridge.IrcClient.Connect(
                 ONITwitchBridge.Settings.Username,
-                ONITwitchBridge.Settings.OAuth,
+                ONITwitchBridge.Settings.UnmaskedOauth,
                 ONITwitchBridge.Settings.Channel
             );
 

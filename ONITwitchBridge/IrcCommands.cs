@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Linq;
+using STRINGS;
 
 namespace enimaloc.onitb
 {
     public static class IrcCommand
     {
-        public const string COMMAND_PREFIX = "!";
+        public static readonly string COMMAND_PREFIX = ONITwitchBridge.Settings.CommandPrefix;
 
         public static class Command
         {
             public const string HELP = "onitb";
-            public const string JOIN = "join";
+            public static readonly string JOIN = ONITwitchBridge.Settings.JoinCommand;
             public const string SET = "set";
             public const string INFO = "info";
         }
@@ -48,7 +49,7 @@ namespace enimaloc.onitb
         }
     }
 
-    [Command(IrcCommand.Command.JOIN, "Join the list of potential Duplicants.")]
+    [Command(null, "Join the list of potential Duplicants.")]
     public class Join : ICommand
     {
         public override string Execute(string user, string arg, string[] args)
@@ -58,6 +59,8 @@ namespace enimaloc.onitb
                 ? $"{user} has joined the list to become a Duplicant!"
                 : $"{user}, you are already a Duplicant or queued to be one.";
         }
+
+        public override string Name() => IrcCommand.Command.JOIN;
     }
 
     [Command(IrcCommand.Command.SET, "Customize your Dup. Subcommands: mainskill, gender.")]
@@ -89,7 +92,7 @@ namespace enimaloc.onitb
 
         private string HandleMainSkill(TwitchDup dup, string user, string[] args)
         {
-            if (ONITwitchBridge.Settings.DisableMainSkillCustomization)
+            if (ONITwitchBridge.Settings.EnableMainSkillCustomization)
                 return "Main skill customization is disabled by the streamer.";
 
             if (args.Length < 2)

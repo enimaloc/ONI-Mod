@@ -21,6 +21,7 @@ namespace enimaloc.onitb
 
         public void Connect(string user, string oauth, string channel)
         {
+            PUtil.LogDebug($"{nameof(Connect)}: user={user}, oauth={oauth}, channel={channel}");
             PUtil.LogDebug($"Connecting to Twitch as '{user}' on channel '{channel}'.");
 
             _anonymous = user == ANON_USERNAME;
@@ -62,14 +63,14 @@ namespace enimaloc.onitb
                     : (ICommand)Activator.CreateInstance(type);
 
                 if (instance == null) continue;
-                Commands[attr.Name] = instance;
-                PUtil.LogDebug($"Registered command: {attr.Name} – {attr.Help}");
+                Commands[instance.Name()] = instance;
+                PUtil.LogDebug($"Registered command: {instance.Name()} – {instance.Help()}");
             }
         }
 
         private void OnMessage(string user, string message, string channel)
         {
-            if (!message.StartsWith("!")) return;
+            if (!message.StartsWith(IrcCommand.COMMAND_PREFIX)) return;
 
             message = message.Substring(1);
             var command = (message.Contains(" ")
@@ -169,7 +170,7 @@ namespace enimaloc.onitb
 
         public Command(string name, string help, string disabledReason = null)
         {
-            Name = name.ToLower();
+            Name = name;
             Help = help;
             Disabled = string.IsNullOrWhiteSpace(disabledReason)
                 ? DisabledState.False()
@@ -182,10 +183,10 @@ namespace enimaloc.onitb
         public abstract string Execute(string user, string arg, string[] args);
 
         public virtual string Help(string user, string arg, string[] args) =>
-            HelpHeader(user, arg, args, GetType().GetCustomAttribute<Command>().Help);
+            HelpHeader(user, arg, args, Help());
 
         protected string HelpHeader(string user, string arg, string[] args, string help) =>
-            $"Command: {GetType().GetCustomAttribute<Command>().Name}{(string.IsNullOrEmpty(arg) ? " " + arg : "")} - {help}";
+            $"Command: {Name()}{(string.IsNullOrEmpty(arg) ? " " + arg : "")} - {help}";
 
         public virtual DisabledState GetDisabledState()
             => GetType().GetCustomAttribute<Command>()?.Disabled ?? DisabledState.False();
@@ -195,6 +196,12 @@ namespace enimaloc.onitb
 
         public virtual bool IsDisabled()
             => GetDisabledState().Disabled;
+        
+        public virtual string Name()
+            => GetType().GetCustomAttribute<Command>().Name.ToLower();
+        
+        public virtual string Help()
+            => GetType().GetCustomAttribute<Command>().Help;
     }
 
     public class DisabledState
