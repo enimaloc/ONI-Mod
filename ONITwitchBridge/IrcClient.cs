@@ -1,27 +1,28 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Database;
 using PeterHan.PLib.Core;
 using TwitchIRC;
-using UnityEngine;
 
-namespace ONITwitchBridge
+namespace enimaloc.onitb
 {
     public class IrcClient
     {
         public const string ANON_USERNAME = "justinfan12345";
-        public Dictionary<string, ICommand> Commands;
+
+        public Dictionary<string, ICommand> Commands { get; private set; }
+
         private ChatListener _listener;
         private bool _anonymous;
-        private string[] disallowedNicknames = new string[7];
-        private int cursor = 0;
+        private readonly string[] _disallowedNicknames = new string[7];
+        private int _cursor = 0;
 
         public void Connect(string user, string oauth, string channel)
         {
-            PUtil.LogDebug($"Attempting to connect to Twitch chat as {user} on channel {channel}.");
+            PUtil.LogDebug($"Connecting to Twitch as '{user}' on channel '{channel}'.");
+
             _anonymous = user == ANON_USERNAME;
             _listener = new ChatListener(user, oauth, channel);
             _listener.OnChatMessage += OnMessage;
@@ -29,10 +30,16 @@ namespace ONITwitchBridge
             if (_listener.Connect())
             {
                 _listener.StartListening();
-                PUtil.LogDebug($"Connected to Twitch chat as {user}.");
+                PUtil.LogDebug($"Connected successfully.");
+
                 SendMessage(
-                    $"VoHiYo Twitch integration connected. Type {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.JOIN} to join the list of potential Dups. " +
-                    $"Type {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.HELP} to see the list of commands.");
+                    $"VoHiYo Twitch integration ready! Use {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.JOIN} to join, " +
+                    $"or {IrcCommand.COMMAND_PREFIX}{IrcCommand.Command.HELP} for commands."
+                );
+            }
+            else
+            {
+                PUtil.LogWarning("Failed to connect to Twitch.");
             }
         }
 
@@ -47,96 +54,110 @@ namespace ONITwitchBridge
             foreach (var type in commandTypes)
             {
                 var attr = type.GetCustomAttribute<Command>();
-                if (attr != null)
-                {
-                    var constructor = type.GetConstructor(new[] { typeof(IrcClient) });
-                    ICommand instance = constructor != null
-                        ? (ICommand)Activator.CreateInstance(type, this)
-                        : (ICommand)Activator.CreateInstance(type);
+                if (attr == null) continue;
 
-                    Commands[attr.Name] = instance;
-                    PUtil.LogDebug($"Registered command: {attr.Name} - {attr.Help}");
-                }
+                var constructor = type.GetConstructor(new[] { typeof(IrcClient) });
+                var instance = constructor != null
+                    ? (ICommand)Activator.CreateInstance(type, this)
+                    : (ICommand)Activator.CreateInstance(type);
+
+                if (instance == null) continue;
+                Commands[attr.Name] = instance;
+                PUtil.LogDebug($"Registered command: {attr.Name} – {attr.Help}");
             }
         }
 
         private void OnMessage(string user, string message, string channel)
         {
             if (!message.StartsWith("!")) return;
+
             message = message.Substring(1);
-            string command = (message.Contains(" ")
+            var command = (message.Contains(" ")
                 ? message.Substring(0, message.IndexOf(" ", StringComparison.Ordinal))
                 : message).ToLower();
-            string arg = message.Contains(" ")
+            var arg = message.Contains(" ")
                 ? message.Substring(message.IndexOf(" ", StringComparison.Ordinal) + 1)
                 : "";
-            string[] args = arg.Split(new[] { " " }, StringSplitOptions.RemoveEmptyEntries);
+            var args = arg.Split(new[] { " " }, StringSplitOptions.RemoveEmptyEntries);
 
-            if (Commands.TryGetValue(command, out var cmd))
+            if (!Commands.TryGetValue(command, out var cmd)) return;
+
+            if (cmd.IsDisabled())
             {
-                if (cmd.IsDisabled())
-                {
-                    SendMessage(cmd.GetDisabledReason());
-                    return;
-                }
+                SendMessage(cmd.GetDisabledReason());
+                return;
+            }
 
-                var reply = cmd.Execute(user, arg, args);
-                if (!string.IsNullOrEmpty(reply))
-                {
-                    SendMessage(reply);
-                }
+            var result = cmd.Execute(user, arg, args);
+            if (!string.IsNullOrEmpty(result))
+            {
+                SendMessage(result);
             }
         }
 
         public void SendMessage(string message)
         {
-            if (_anonymous) return;
+            if (_anonymous || _listener?.Irc == null) return;
             _listener.Irc.SendChatMessage(message);
         }
 
-        public Dup GetRandomUser(Dup or, Dictionary<SkillGroup, float>.KeyCollection skillsHint, string genderKey)
+        public Dup GetRandomUser(Dup fallback, IEnumerable<SkillGroup> skillsHint, string genderKey)
         {
-            var twitchReg = Registry.Get().TwitchRegistry;
-            var available = new TwitchDup[twitchReg.Count];
-            twitchReg.CopyTo(available);
-            available = available.Where(dup =>
-                !dup.GetGameScope().CanBeSelected()
-                && (skillsHint.Any(dup.IsMainSkilled) || !dup.HasMainSkill())
-                && genderKey.Equals(dup.Gender)
-                && !disallowedNicknames.Contains(dup.Name)
-            ).ToArray();
-            if (available.Length != 0)
+            var twitchRegistry = Registry.Get().TwitchRegistry;
+            var dups = new TwitchDup[twitchRegistry.Count];
+            twitchRegistry.CopyTo(dups);
+
+            var candidates = dups
+                .Where(dup =>
+                    dup.GetGameScope().CanBeSelected() &&
+                    (skillsHint.Any(dup.IsMainSkilled) || !dup.HasMainSkill()) &&
+                    string.Equals(dup.Gender, genderKey, StringComparison.OrdinalIgnoreCase) &&
+                    !_disallowedNicknames.Contains(dup.Name)
+                )
+                .ToArray();
+
+            if (candidates.Length == 0)
             {
-                Dup get = available.GetRandom();
-                int attempts = 0;
-                while (disallowedNicknames.Contains(get.Name) && attempts < 10)
-                {
-                    get = available.GetRandom();
-                    attempts++;
-                }
-
-                if (attempts >= 10)
-                {
-                    PUtil.LogWarning("Could not find a valid random user after 10 attempts.");
-                    get = or;
-                }
-
-                or = get;
+                PUtil.LogWarning("No suitable candidate found for random user.");
+                _disallowedNicknames[_cursor] = fallback.Name;
+                _cursor = (_cursor + 1) % _disallowedNicknames.Length;
+                return fallback;
             }
 
-            disallowedNicknames[cursor] = or.Name;
-            cursor = (cursor + 1) % disallowedNicknames.Length;
-            return or;
+            var selected = SelectNonDisallowed(candidates, fallback);
+            _disallowedNicknames[_cursor] = selected.Name;
+            _cursor = (_cursor + 1) % _disallowedNicknames.Length;
+
+            return selected;
+        }
+
+        private Dup SelectNonDisallowed(TwitchDup[] candidates, Dup fallback)
+        {
+            var attempts = 0;
+            Dup selected = candidates.GetRandom();
+
+            while (_disallowedNicknames.Contains(selected.Name) && attempts++ < 10)
+            {
+                selected = candidates.GetRandom();
+            }
+
+            if (attempts >= 10)
+            {
+                PUtil.LogWarning("Too many attempts to find a non-disallowed user.");
+                return fallback;
+            }
+
+            return selected;
         }
 
         public void Disconnect()
         {
-            PUtil.LogDebug("Disconnecting from Twitch chat.");
-            _listener.StopListening();
+            PUtil.LogDebug("Disconnecting from Twitch...");
+            _listener?.StopListening();
             _listener = null;
         }
 
-        public bool IsConnected() => _listener is { Connected: true };
+        public bool IsConnected() => _listener?.Connected == true;
     }
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
@@ -150,7 +171,9 @@ namespace ONITwitchBridge
         {
             Name = name.ToLower();
             Help = help;
-            Disabled = string.IsNullOrEmpty(disabledReason) ? DisabledState.FALSE : DisabledState.True(disabledReason);
+            Disabled = string.IsNullOrWhiteSpace(disabledReason)
+                ? DisabledState.False()
+                : DisabledState.True(disabledReason);
         }
     }
 
@@ -158,31 +181,28 @@ namespace ONITwitchBridge
     {
         public abstract string Execute(string user, string arg, string[] args);
 
-        public virtual string Help(string user, string arg, string[] args)
-        {
-            var type = GetType().GetCustomAttribute<Command>();
-            return HelpHeader(user, arg, args, type.Help);
-        }
+        public virtual string Help(string user, string arg, string[] args) =>
+            HelpHeader(user, arg, args, GetType().GetCustomAttribute<Command>().Help);
 
-        public string HelpHeader(string user, string arg, string[] args, string help)
-        {
-            var type = GetType().GetCustomAttribute<Command>();
-            return $"Command: {(string.IsNullOrEmpty(arg) ? type.Name : type.Name + " " + arg)} - {help}";
-        }
+        protected string HelpHeader(string user, string arg, string[] args, string help) =>
+            $"Command: {GetType().GetCustomAttribute<Command>()}{(string.IsNullOrEmpty(arg) ? " " + arg : "")} - {help}";
 
-        public virtual DisabledState GetDisabledState() => GetType().GetCustomAttribute<Command>().Disabled;
+        public virtual DisabledState GetDisabledState()
+            => GetType().GetCustomAttribute<Command>()?.Disabled ?? DisabledState.False();
 
-        public virtual string GetDisabledReason() => $"This command is disabled because {GetDisabledState().Reason}";
+        public virtual string GetDisabledReason()
+            => $"This command is disabled. Reason: {GetDisabledState().Reason}";
 
-        public virtual bool IsDisabled() => GetDisabledState().Disabled;
+        public virtual bool IsDisabled()
+            => GetDisabledState().Disabled;
     }
 
     public class DisabledState
     {
-        public static readonly DisabledState FALSE = False();
-        public static readonly DisabledState TRUE = True();
-        public readonly bool Disabled;
-        public readonly string Reason;
+        public static readonly DisabledState FALSE = new DisabledState(false, string.Empty);
+
+        public bool Disabled { get; }
+        public string Reason { get; }
 
         private DisabledState(bool disabled, string reason)
         {
@@ -190,8 +210,7 @@ namespace ONITwitchBridge
             Reason = reason;
         }
 
-        public static DisabledState True(string reason) => new DisabledState(true, reason);
-        public static DisabledState True() => True("unknown reason");
-        public static DisabledState False() => new DisabledState(false, "");
+        public static DisabledState True(string reason = "Unknown reason") => new DisabledState(true, reason);
+        public static DisabledState False() => FALSE;
     }
 }
