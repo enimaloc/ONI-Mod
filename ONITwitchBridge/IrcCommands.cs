@@ -68,6 +68,7 @@ namespace ONITwitchBridge
     [Command(IrcCommand.Command.SET, "allow you to customize your Dup. Available subcommands: mainSkill.")]
     public class Set : ICommand
     {
+        public string[] GENDERS_POSSIBLES_VALUES = { Dup.GENDER_MALE, Dup.GENDER_FEMALE, "Other" };
         private IrcClient _ircClient;
 
         public Set(IrcClient ircClient)
@@ -99,11 +100,10 @@ namespace ONITwitchBridge
                     return $"Main skill set to {args[1]} for {user}.";
                 case "gender":
                     if (args.Length < 2) return Help(user, arg, args);
-                    var possibleValues = new[] { Dup.GENDER_MALE, Dup.GENDER_FEMALE, "Other" };
-                    if (!possibleValues.Any(s => s.Equals(args[1], StringComparison.OrdinalIgnoreCase)))
-                        return $"Invalid gender: {args[1]}. Possible values: {string.Join(", ", possibleValues)}";
+                    if (!GENDERS_POSSIBLES_VALUES.Any(s => s.Equals(args[1], StringComparison.OrdinalIgnoreCase)))
+                        return $"Invalid gender: {args[1]}. Possible values: {string.Join(", ", GENDERS_POSSIBLES_VALUES)}";
                     dup = Registry.Get().TwitchRegistry.GetDup(user);
-                    dup.SetGender(possibleValues.FirstOrDefault(s =>
+                    dup.SetGender(GENDERS_POSSIBLES_VALUES.FirstOrDefault(s => 
                         s.Equals(args[1], StringComparison.OrdinalIgnoreCase)));
                     return $"Gender set to {args[1]} for {user}.";
                 default:
@@ -121,6 +121,9 @@ namespace ONITwitchBridge
                 case "mainskill":
                     return HelpHeader(user, arg, args,
                         $"Set the main skill of your Dup. Possible values: {string.Join(", ", ONITwitchBridge.Skills)}");
+                case "gender":
+                    return HelpHeader(user, arg, args,
+                        $"Set the gender of your Dup. Possible values: {string.Join(", ", GENDERS_POSSIBLES_VALUES)}");
                 default: return base.Help(user, arg, args);
             }
         }
