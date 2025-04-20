@@ -131,8 +131,13 @@ namespace enimaloc.onitb
         [JsonProperty] public string Name { get; private set; }
         [JsonProperty] public bool WantJoin { get; set; }
         [JsonProperty] public bool InGame { get; set; }
+        public MinionIdentity MinionIdentity { get; set; }
 
-        public GameDup(string name) => Name = name;
+        public GameDup(string name)
+        {
+            Name = name;
+            MinionIdentity = Components.LiveMinionIdentities.FirstOrDefault(dup => dup.name == name);
+        }
 
         public TwitchDup GetGlobalScope() => Registry.Get().TwitchRegistry.Get(Name);
 
@@ -162,12 +167,17 @@ namespace enimaloc.onitb
 
         public void SetMainSkill(SkillGroup skill) => MainSkill = skill.Id;
 
-        public void SetGender(string gender) => Gender = gender switch
+        public void SetGender(string gender)
         {
-            _ when gender == GENDER_MALE => GENDER_MALE,
-            _ when gender == GENDER_FEMALE => GENDER_FEMALE,
-            _ => GENDER_OTHER
-        };
+            Gender = gender switch
+            {
+                _ when gender == GENDER_MALE => GENDER_MALE,
+                _ when gender == GENDER_FEMALE => GENDER_FEMALE,
+                _ => GENDER_OTHER
+            };
+            if (GetGameScope().InGame && GetGameScope().MinionIdentity != null)
+                GetGameScope().MinionIdentity.SetGender(gender);
+        }
     }
 
     public class Dup

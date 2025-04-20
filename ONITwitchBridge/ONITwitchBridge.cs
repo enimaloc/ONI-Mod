@@ -96,15 +96,14 @@ namespace enimaloc.onitb
             __instance.Name = twitchDup.Name;
         }
 
-        [HarmonyPatch(typeof(Telepad), "OnAcceptDelivery")]
+        [HarmonyPatch(typeof(MinionStartingStats), nameof(MinionStartingStats.Deliver))]
         [HarmonyPostfix]
-        public static void TelepadOnAcceptDelivery_Postfix(ITelepadDeliverable delivery)
+        public static void MinionStartingStatsDeliver_Postfix(GameObject __result)
         {
-            if (!(delivery is MinionStartingStats minion)) return;
-
-            var name = minion.Name;
+            var name = __result.name;
             var dup = Registry.Get().GameRegistry.Get(name);
             dup.InGame = true;
+            dup.MinionIdentity = __result.GetComponent<MinionIdentity>();
 
             ONITwitchBridge.IrcClient.SendMessage($"{name} has been accepted as a Duplicant. Welcome to the colony!");
         }
