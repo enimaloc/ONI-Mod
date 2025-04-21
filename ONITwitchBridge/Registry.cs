@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Database;
+using enimaloc.onitb.api;
 using Newtonsoft.Json;
 using PeterHan.PLib.Core;
 using UnityEngine;
@@ -153,11 +154,11 @@ namespace enimaloc.onitb
             WantJoin = true;
             return true;
         }
-        
+
         public void UpdateIdentity()
         {
             if (!InGame || GameObject == null) return;
-            
+
             MinionIdentity.SetGender(GlobalScope.Gender);
         }
     }
@@ -167,7 +168,43 @@ namespace enimaloc.onitb
     {
         [JsonProperty] public new string Name { get; private set; }
         [JsonProperty] public string MainSkill { get; set; }
-        [JsonProperty] public string Gender { get; set; }
+        [JsonProperty("Gender")] private string _gender;
+        private string _tmpGender;
+
+        public string Gender
+        {
+            set => _gender = value;
+            get
+            {
+                if (!string.IsNullOrEmpty(_gender)) return _gender;
+                if (!string.IsNullOrEmpty(_tmpGender)) return _tmpGender;
+                try
+                {
+                    PUtil.LogDebug($"Fetching pronouns from AlejoPronounsAPI for {Name}");
+                    var alejoUser = AlejoPronounsAPI.User(Name);
+                    if (alejoUser == null)
+                    {
+                        PUtil.LogDebug($"No pronouns found for {Name}");
+                        return null;
+                    }
+
+                    PUtil.LogDebug($"Got {alejoUser.PronounId} for {Name}");
+                    return _tmpGender = alejoUser.PronounId switch
+                    {
+                        "any" => null,
+                        "hehim" => GENDER_MALE,
+                        "sheher" => GENDER_FEMALE,
+                        _ => GENDER_OTHER
+                    };
+                }
+                catch (Exception e)
+                {
+                    PUtil.LogError($"Failed to get pronouns for {Name}: {e}");
+                }
+
+                return null;
+            }
+        }
 
         public TwitchDup(string name) : base(name) => Name = name;
 
