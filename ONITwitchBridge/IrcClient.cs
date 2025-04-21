@@ -110,7 +110,7 @@ namespace enimaloc.onitb
 
             var candidates = dups
                 .Where(dup =>
-                    dup.GetGameScope().CanBeSelected() &&
+                    dup.GameScope.CanBeSelected() &&
                     (skillsHint.Any(dup.IsMainSkilled) || !dup.HasMainSkill()) &&
                     string.Equals(dup.Gender, genderKey, StringComparison.OrdinalIgnoreCase) &&
                     !_disallowedNicknames.Contains(dup.Name)

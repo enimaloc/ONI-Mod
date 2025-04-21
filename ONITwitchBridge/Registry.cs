@@ -5,6 +5,7 @@ using System.Linq;
 using Database;
 using Newtonsoft.Json;
 using PeterHan.PLib.Core;
+using UnityEngine;
 
 namespace enimaloc.onitb
 {
@@ -59,9 +60,9 @@ namespace enimaloc.onitb
             Add(item);
             return item;
         }
-        
+
         public bool Has(T item) => Items.Contains(item);
-        
+
         public bool Has(Predicate<T> predicate) => Items.Exists(predicate);
 
         public abstract string GetFilePath();
@@ -70,7 +71,8 @@ namespace enimaloc.onitb
         {
             PUtil.LogDebug($"Saving {GetType().Name} registry to {GetFilePath()}");
             var path = GetFilePath();
-            if (!Directory.Exists(path.Substring(path.LastIndexOf("/", StringComparison.Ordinal)))) Directory.CreateDirectory(path.Substring(path.LastIndexOf("/", StringComparison.Ordinal)));
+            if (!Directory.Exists(path.Substring(path.LastIndexOf("/", StringComparison.Ordinal))))
+                Directory.CreateDirectory(path.Substring(path.LastIndexOf("/", StringComparison.Ordinal)));
 
             using var textWriter = new StreamWriter(path);
             using var jsonWriter = new JsonTextWriter(textWriter);
@@ -85,7 +87,7 @@ namespace enimaloc.onitb
             $"{ONITwitchBridge.ModFolderPath}/Saves/{SaveLoader.Instance.GameInfo.baseName}.json";
 
         public GameDup Get(string name) => GetOrCreate(dup => dup.Name == name, () => new GameDup(name));
-        
+
         public bool Has(string name) => Has(dup => dup.Name == name);
 
         public override string GetFilePath() => FilePath;
@@ -119,7 +121,7 @@ namespace enimaloc.onitb
         }
 
         public TwitchDup Get(string name) => GetOrCreate(dup => dup.Name == name, () => new TwitchDup(name));
-        
+
         public bool Has(string name) => Has(dup => dup.Name == name);
 
         public override string GetFilePath() => FilePath;
@@ -131,15 +133,17 @@ namespace enimaloc.onitb
         [JsonProperty] public string Name { get; private set; }
         [JsonProperty] public bool WantJoin { get; set; }
         [JsonProperty] public bool InGame { get; set; }
-        public MinionIdentity MinionIdentity { get; set; }
+        public GameObject GameObject { get; set; }
+        public MinionIdentity MinionIdentity => GameObject?.GetComponent<MinionIdentity>();
+
 
         public GameDup(string name)
         {
             Name = name;
-            MinionIdentity = Components.LiveMinionIdentities.FirstOrDefault(dup => dup.name == name);
         }
 
-        public TwitchDup GetGlobalScope() => Registry.Get().TwitchRegistry.Get(Name);
+        public TwitchDup GlobalScope => Registry.Get().TwitchRegistry.Get(Name);
+
 
         public bool CanBeSelected() => WantJoin && !InGame;
 
@@ -148,6 +152,13 @@ namespace enimaloc.onitb
             if (InGame) return false;
             WantJoin = true;
             return true;
+        }
+        
+        public void UpdateIdentity()
+        {
+            if (!InGame || GameObject == null) return;
+            
+            MinionIdentity.SetGender(GlobalScope.Gender);
         }
     }
 
@@ -160,7 +171,7 @@ namespace enimaloc.onitb
 
         public TwitchDup(string name) : base(name) => Name = name;
 
-        public GameDup GetGameScope() => Registry.Get().GameRegistry.Get(Name);
+        public GameDup GameScope => Registry.Get().GameRegistry.Get(Name);
 
         public bool IsMainSkilled(SkillGroup arg) => HasMainSkill() && arg.Id == MainSkill;
         public bool HasMainSkill() => MainSkill != null;
@@ -175,8 +186,7 @@ namespace enimaloc.onitb
                 _ when gender == GENDER_FEMALE => GENDER_FEMALE,
                 _ => GENDER_OTHER
             };
-            if (GetGameScope().InGame && GetGameScope().MinionIdentity != null)
-                GetGameScope().MinionIdentity.SetGender(gender);
+            GameScope.UpdateIdentity();
         }
     }
 

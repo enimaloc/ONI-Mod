@@ -148,7 +148,7 @@ namespace enimaloc.onitb
         public override string Execute(string user, string arg, string[] args)
         {
             var twitchDup = Registry.Get().TwitchRegistry.Get(user);
-            var gameDup = twitchDup.GetGameScope();
+            var gameDup = twitchDup.GameScope;
 
             var genderPart = string.IsNullOrEmpty(twitchDup.Gender)
                 ? ""

@@ -55,8 +55,18 @@ namespace enimaloc.onitb
                 ONITwitchBridge.Settings.UnmaskedOauth,
                 ONITwitchBridge.Settings.Channel
             );
-
             Registry.Get().Initialize();
+        }
+        
+        [HarmonyPatch(typeof(MinionIdentity), "ApplyCustomGameSettings")]
+        [HarmonyPostfix]
+        public static void MinionIdentityApplyCustomGameSettings_Postfix(MinionIdentity __instance)
+        {
+            var registry = Registry.Get().GameRegistry;
+            if (registry.Has(__instance.name))
+            {
+                registry.Get(__instance.name).GameObject = __instance.gameObject;
+            }
         }
 
         [HarmonyPatch(typeof(Game), nameof(Game.Save))]
@@ -103,7 +113,7 @@ namespace enimaloc.onitb
             var name = __result.name;
             var dup = Registry.Get().GameRegistry.Get(name);
             dup.InGame = true;
-            dup.MinionIdentity = __result.GetComponent<MinionIdentity>();
+            dup.GameObject = __result;
 
             ONITwitchBridge.IrcClient.SendMessage($"{name} has been accepted as a Duplicant. Welcome to the colony!");
         }
